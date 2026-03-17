@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Sessions</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --panel: rgba(255, 250, 242, 0.88);
+      --line: rgba(72, 52, 31, 0.18);
+      --text: #2c241b;
+      --muted: #73614c;
+      --busy: #b54d2d;
+      --idle: #2f6f57;
+      --stopped: #7f5af0;
+      --daemon: #8b6f47;
+      --shadow: 0 24px 60px rgba(68, 42, 20, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(203, 135, 63, 0.22), transparent 28%),
+        radial-gradient(circle at right 20%, rgba(83, 134, 115, 0.18), transparent 24%),
+        linear-gradient(180deg, #f8f2e8 0%, #efe5d7 100%);
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 24px auto;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .controls label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    select,
+    button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 9px 14px;
+      font: inherit;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--text);
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .meta-card {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.54);
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .meta-value {
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .board {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.54);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(72, 52, 31, 0.1);
+      vertical-align: top;
+    }
+
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: rgba(255, 252, 248, 0.7);
+      position: sticky;
+      top: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid currentColor;
+      white-space: nowrap;
+    }
+
+    .busy { color: var(--busy); }
+    .busyq { color: #d17828; }
+    .idle { color: var(--idle); }
+    .idleq { color: #4d8b77; }
+    .stopped { color: var(--stopped); }
+    .daemon { color: var(--daemon); }
+
+    .tool {
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .project {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .cwd {
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .empty,
+    .error {
+      padding: 32px 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .error {
+      color: var(--busy);
+    }
+
+    @media (max-width: 740px) {
+      .shell {
+        width: calc(100% - 20px);
+        margin: 10px auto;
+        padding: 16px;
+        border-radius: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <div>
+        <h1>Agent Sessions</h1>
+        <div class="subtitle">claude / codex のローカル稼働状態を定期更新で表示</div>
+      </div>
+      <div class="controls">
+        <label for="interval">Refresh</label>
+        <select id="interval">
+          <option value="1000">1.0s</option>
+          <option value="2000" selected>2.0s</option>
+          <option value="5000">5.0s</option>
+          <option value="10000">10.0s</option>
+        </select>
+        <button id="refresh">Refresh Now</button>
+      </div>
+    </div>
+
+    <section class="meta">
+      <div class="meta-card">
+        <span class="meta-label">Sessions</span>
+        <div class="meta-value" id="count">0</div>
+      </div>
+      <div class="meta-card">
+        <span class="meta-label">Busy</span>
+        <div class="meta-value" id="busy-count">0</div>
+      </div>
+      <div class="meta-card">
+        <span class="meta-label">Last Update</span>
+        <div class="meta-value" id="updated" style="font-size:18px">-</div>
+      </div>
+    </section>
+
+    <section class="board">
+      <table>
+        <thead>
+          <tr>
+            <th>Tool</th>
+            <th>Status</th>
+            <th>Project</th>
+            <th>TTY</th>
+            <th>CPU</th>
+            <th>Elapsed</th>
+            <th>PID</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="8" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const rows = document.getElementById("rows");
+    const count = document.getElementById("count");
+    const busyCount = document.getElementById("busy-count");
+    const updated = document.getElementById("updated");
+    const intervalSelect = document.getElementById("interval");
+    const refreshButton = document.getElementById("refresh");
+
+    let timer = null;
+
+    function statusClass(status) {
+      return {
+        "busy": "busy",
+        "busy?": "busyq",
+        "idle": "idle",
+        "idle?": "idleq",
+        "stopped": "stopped",
+        "daemon": "daemon"
+      }[status] || "idle";
+    }
+
+    function renderTable(sessions) {
+      count.textContent = sessions.length;
+      busyCount.textContent = sessions.filter((item) => item.status.startsWith("busy")).length;
+      updated.textContent = new Date().toLocaleTimeString();
+
+      if (!sessions.length) {
+        rows.innerHTML = '<tr><td colspan="8" class="empty">No sessions found.</td></tr>';
+        return;
+      }
+
+      const sorted = [...sessions].sort((a, b) => {
+        const busyA = a.status.startsWith("busy") ? 0 : 1;
+        const busyB = b.status.startsWith("busy") ? 0 : 1;
+        if (busyA !== busyB) return busyA - busyB;
+        return a.project.localeCompare(b.project);
+      });
+
+      rows.innerHTML = sorted.map((item) => `
+        <tr>
+          <td><span class="tool">${item.tool}</span></td>
+          <td><span class="badge ${statusClass(item.status)}">${item.status}</span></td>
+          <td>
+            <div class="project">${item.project || "-"}</div>
+            <div class="cwd">${item.cwd || "-"}</div>
+          </td>
+          <td>${item.tty}</td>
+          <td>${item.cpu}%</td>
+          <td>${item.elapsed}</td>
+          <td>${item.pid}</td>
+          <td>${item.source}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderError(message) {
+      updated.textContent = new Date().toLocaleTimeString();
+      rows.innerHTML = `<tr><td colspan="8" class="error">${message}</td></tr>`;
+    }
+
+    async function loadSessions() {
+      try {
+        const response = await fetch(`/api/sessions?t=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        renderTable(data);
+      } catch (error) {
+        renderError(`Failed to load sessions: ${error.message}`);
+      }
+    }
+
+    function restartTimer() {
+      if (timer) clearInterval(timer);
+      timer = setInterval(loadSessions, Number(intervalSelect.value));
+    }
+
+    refreshButton.addEventListener("click", loadSessions);
+    intervalSelect.addEventListener("change", restartTimer);
+
+    loadSessions();
+    restartTimer();
+  </script>
+</body>
+</html>

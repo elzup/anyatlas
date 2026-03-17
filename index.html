@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Sessions Desktop</title>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="topbar">
+        <div>
+          <h1>Agent Sessions</h1>
+          <div class="subtitle">Tauri desktop monitor for local claude / codex sessions</div>
+        </div>
+        <div class="controls">
+          <label for="interval">Refresh</label>
+          <select id="interval">
+            <option value="1000">1.0s</option>
+            <option value="2000" selected>2.0s</option>
+            <option value="5000">5.0s</option>
+            <option value="10000">10.0s</option>
+          </select>
+          <button id="refresh">Refresh Now</button>
+        </div>
+      </div>
+
+      <section class="meta">
+        <div class="meta-card">
+          <span class="meta-label">Sessions</span>
+          <div class="meta-value" id="count">0</div>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">Busy</span>
+          <div class="meta-value" id="busy-count">0</div>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">Last Update</span>
+          <div class="meta-value small" id="updated">-</div>
+        </div>
+      </section>
+
+      <section class="board">
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Status</th>
+              <th>Project</th>
+              <th>TTY</th>
+              <th>CPU</th>
+              <th>Elapsed</th>
+              <th>PID</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="8" class="empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </body>
+</html>
