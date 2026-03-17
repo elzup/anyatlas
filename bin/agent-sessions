@@ -55,7 +55,6 @@ render_once() {
 
   tmp_ps="$(mktemp)"
   tmp_lsof="$(mktemp)"
-  trap 'rm -f "$tmp_ps" "$tmp_lsof"' RETURN
 
   ps -axo pid=,ppid=,pgid=,%cpu=,state=,tty=,etime=,time=,comm=,command= \
     | awk '
@@ -79,6 +78,7 @@ render_once() {
     else
       printf 'No Claude/Codex sessions found.\n'
     fi
+    rm -f "$tmp_ps" "$tmp_lsof"
     return 0
   fi
 
@@ -178,6 +178,7 @@ render_once() {
         printf "]\n"
       }
     ' "$tmp_ps"
+    rm -f "$tmp_ps" "$tmp_lsof"
     return 0
   fi
 
@@ -252,6 +253,7 @@ render_once() {
 
   printf '\n'
   printf 'Status meaning: busy=strong signal, busy?=heuristic, idle=waiting on tty, daemon=editor bridge, stopped=suspended.\n'
+  rm -f "$tmp_ps" "$tmp_lsof"
 }
 
 if (( watch_mode )); then
