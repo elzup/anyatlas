@@ -1,0 +1,266 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+json=0
+watch_mode=0
+watch_interval=2
+
+usage() {
+  cat <<'EOF'
+Usage:
+  agent-sessions
+  agent-sessions --json
+  agent-sessions --watch [seconds]
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json)
+      json=1
+      ;;
+    --watch)
+      watch_mode=1
+      if [[ $# -gt 1 && "${2-}" != --* ]]; then
+        watch_interval="$2"
+        shift
+      fi
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if (( json && watch_mode )); then
+  printf '--json and --watch cannot be used together.\n' >&2
+  exit 1
+fi
+
+if ! [[ "$watch_interval" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  printf 'Invalid watch interval: %s\n' "$watch_interval" >&2
+  exit 1
+fi
+
+render_once() {
+  local tmp_ps tmp_lsof
+
+  tmp_ps="$(mktemp)"
+  tmp_lsof="$(mktemp)"
+  trap 'rm -f "$tmp_ps" "$tmp_lsof"' RETURN
+
+  ps -axo pid=,ppid=,pgid=,%cpu=,state=,tty=,etime=,time=,comm=,command= \
+    | awk '
+        BEGIN { OFS = "\t" }
+        {
+          pid=$1; ppid=$2; pgid=$3; cpu=$4; state=$5; tty=$6; etime=$7; cputime=$8; comm=$9
+          $1=$2=$3=$4=$5=$6=$7=$8=$9=""
+          sub(/^[[:space:]]+/, "", $0)
+          cmd=$0
+          if (comm == "claude" || comm == "codex" || (comm == "node" && cmd ~ /claude-agent-acp/)) {
+            if (cmd !~ /agent-sessions/ && cmd !~ /rg / && cmd !~ /awk / && cmd !~ /ps -axo/ && cmd !~ /lsof -a -d cwd/) {
+              print pid, ppid, pgid, cpu, state, tty, etime, cputime, comm, cmd
+            }
+          }
+        }
+      ' > "$tmp_ps"
+
+  if [[ ! -s "$tmp_ps" ]]; then
+    if (( json )); then
+      printf '[]\n'
+    else
+      printf 'No Claude/Codex sessions found.\n'
+    fi
+    return 0
+  fi
+
+  awk -F '\t' '{ print $1 }' "$tmp_ps" \
+    | tr '\n' ',' \
+    | sed 's/,$//' \
+    | xargs -I{} lsof -a -d cwd -Fn -p {} 2>/dev/null > "$tmp_lsof" || true
+
+  if (( json )); then
+    awk -F '\t' '
+      BEGIN {
+        while ((getline line < "'"$tmp_lsof"'") > 0) {
+          if (substr(line, 1, 1) == "p") {
+            pid = substr(line, 2)
+          } else if (substr(line, 1, 1) == "n") {
+            cwd[pid] = substr(line, 2)
+          }
+        }
+        close("'"$tmp_lsof"'")
+      }
+      function basename(path,    n, parts) {
+        n = split(path, parts, "/")
+        return parts[n]
+      }
+      function source_for(cmd, tty) {
+        if (cmd ~ /claude-agent-acp/) return "zed-bridge"
+        if (cmd ~ /codex app-server/) return "vscode-daemon"
+        if (cmd ~ /\/claude .*stream-json/ || cmd ~ /\/claude --output-format stream-json/) return "vscode-session"
+        if (tty == "??") return "background"
+        return "cli"
+      }
+      function escape(str,    out) {
+        gsub(/\\/,"\\\\", str)
+        gsub(/"/,"\\\"", str)
+        gsub(/\t/,"\\t", str)
+        return str
+      }
+      function status_for(cmd, state, cpu, tty, pid,    i, child_count) {
+        child_count = 0
+        for (i = 1; i <= rows; i++) {
+          if (ppids[i] == pid) child_count++
+        }
+        if (state ~ /T/) return "stopped"
+        if (cmd ~ /codex app-server/ || cmd ~ /claude-agent-acp/) return "daemon"
+        if (cmd ~ /\/claude .*stream-json/ || cmd ~ /\/claude --output-format stream-json/) {
+          if (cpu + 0.0 >= 1.0 || child_count > 0) return "busy?"
+          return "idle?"
+        }
+        if (tty == "??") {
+          if (cpu + 0.0 >= 1.0 || child_count > 0) return "busy?"
+          return "idle?"
+        }
+        if (state ~ /R|U|D/) return "busy"
+        if (cpu + 0.0 >= 1.0 || child_count > 0) return "busy?"
+        return "idle"
+      }
+      {
+        rows++
+        pids[rows] = $1
+        ppids[rows] = $2
+        cpus[rows] = $4
+        states[rows] = $5
+        ttys[rows] = $6
+        etimes[rows] = $7
+        cputimes[rows] = $8
+        comms[rows] = $9
+        cmds[rows] = $10
+      }
+      END {
+        printf "["
+        for (i = 1; i <= rows; i++) {
+          pid = pids[i]
+          comm = comms[i]
+          cmd = cmds[i]
+          dir = (pid in cwd ? cwd[pid] : "")
+          project = dir == "" ? "" : basename(dir)
+          tool = (comm == "codex" || cmd ~ /codex/) ? "codex" : "claude"
+          source = source_for(cmd, ttys[i])
+          status = status_for(cmd, states[i], cpus[i], ttys[i], pid)
+          if (i > 1) printf ","
+          printf "\n  {"
+          printf "\"tool\":\"%s\",", tool
+          printf "\"source\":\"%s\",", source
+          printf "\"status\":\"%s\",", status
+          printf "\"pid\":%s,", pid
+          printf "\"ppid\":%s,", ppids[i]
+          printf "\"tty\":\"%s\",", escape(ttys[i])
+          printf "\"cpu\":\"%s\",", cpus[i]
+          printf "\"elapsed\":\"%s\",", etimes[i]
+          printf "\"cpu_time\":\"%s\",", cputimes[i]
+          printf "\"project\":\"%s\",", escape(project)
+          printf "\"cwd\":\"%s\",", escape(dir)
+          printf "\"command\":\"%s\"", escape(cmd)
+          printf "}"
+        }
+        if (rows > 0) printf "\n"
+        printf "]\n"
+      }
+    ' "$tmp_ps"
+    return 0
+  fi
+
+  printf '%-7s %-14s %-8s %-7s %-7s %-10s %-8s %-10s %s\n' "TOOL" "SOURCE" "STATUS" "PID" "TTY" "CPU%" "ELAPSED" "PROJECT" "CWD"
+
+  awk -F '\t' '
+    BEGIN {
+      while ((getline line < "'"$tmp_lsof"'") > 0) {
+        if (substr(line, 1, 1) == "p") {
+          pid = substr(line, 2)
+        } else if (substr(line, 1, 1) == "n") {
+          cwd[pid] = substr(line, 2)
+        }
+      }
+      close("'"$tmp_lsof"'")
+    }
+    function basename(path,    n, parts) {
+      n = split(path, parts, "/")
+      return parts[n]
+    }
+    function source_for(cmd, tty) {
+      if (cmd ~ /claude-agent-acp/) return "zed-bridge"
+      if (cmd ~ /codex app-server/) return "vscode-daemon"
+      if (cmd ~ /\/claude .*stream-json/ || cmd ~ /\/claude --output-format stream-json/) return "vscode-session"
+      if (tty == "??") return "background"
+      return "cli"
+    }
+    function status_for(cmd, state, cpu, tty, pid,    i, child_count) {
+      child_count = 0
+      for (i = 1; i <= rows; i++) {
+        if (ppids[i] == pid) child_count++
+      }
+      if (state ~ /T/) return "stopped"
+      if (cmd ~ /codex app-server/ || cmd ~ /claude-agent-acp/) return "daemon"
+      if (cmd ~ /\/claude .*stream-json/ || cmd ~ /\/claude --output-format stream-json/) {
+        if (cpu + 0.0 >= 1.0 || child_count > 0) return "busy?"
+        return "idle?"
+      }
+      if (tty == "??") {
+        if (cpu + 0.0 >= 1.0 || child_count > 0) return "busy?"
+        return "idle?"
+      }
+      if (state ~ /R|U|D/) return "busy"
+      if (cpu + 0.0 >= 1.0 || child_count > 0) return "busy?"
+      return "idle"
+    }
+    {
+      rows++
+      pids[rows] = $1
+      ppids[rows] = $2
+      cpus[rows] = $4
+      states[rows] = $5
+      ttys[rows] = $6
+      etimes[rows] = $7
+      comms[rows] = $9
+      cmds[rows] = $10
+    }
+    END {
+      for (i = 1; i <= rows; i++) {
+        pid = pids[i]
+        comm = comms[i]
+        cmd = cmds[i]
+        dir = (pid in cwd ? cwd[pid] : "")
+        project = dir == "" ? "-" : basename(dir)
+        tool = (comm == "codex" || cmd ~ /codex/) ? "codex" : "claude"
+        source = source_for(cmd, ttys[i])
+        status = status_for(cmd, states[i], cpus[i], ttys[i], pid)
+        printf "%-7s %-14s %-8s %-7s %-7s %-10s %-8s %-10s %s\n", tool, source, status, pid, ttys[i], cpus[i], etimes[i], project, (dir == "" ? "-" : dir)
+      }
+    }
+  ' "$tmp_ps"
+
+  printf '\n'
+  printf 'Status meaning: busy=strong signal, busy?=heuristic, idle=waiting on tty, daemon=editor bridge, stopped=suspended.\n'
+}
+
+if (( watch_mode )); then
+  while true; do
+    command clear
+    printf 'agent-sessions --watch %.1fs  %s\n\n' "$watch_interval" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+    render_once
+    sleep "$watch_interval"
+  done
+fi
+
+render_once
