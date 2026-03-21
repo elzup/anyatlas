@@ -1,14 +1,15 @@
 :root {
-  --bg: #f4efe7;
-  --panel: rgba(255, 250, 242, 0.88);
-  --line: rgba(72, 52, 31, 0.18);
-  --text: #2c241b;
-  --muted: #73614c;
-  --busy: #b54d2d;
-  --idle: #2f6f57;
-  --stopped: #7f5af0;
-  --daemon: #8b6f47;
-  --shadow: 0 24px 60px rgba(68, 42, 20, 0.14);
+  --bg: #0e0e12;
+  --panel: rgba(22, 22, 30, 0.92);
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #e0ddd8;
+  --muted: #6b6977;
+  --busy: #ef5350;
+  --idle: #4caf50;
+  --stopped: #7c4dff;
+  --daemon: #ff9800;
+  --accent: #64b5f6;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -18,67 +19,60 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  font-size: 12px;
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(203, 135, 63, 0.22), transparent 28%),
-    radial-gradient(circle at right 20%, rgba(83, 134, 115, 0.18), transparent 24%),
-    linear-gradient(180deg, #f8f2e8 0%, #efe5d7 100%);
+  background: var(--bg);
 }
 
 .shell {
-  width: min(1180px, calc(100% - 32px));
-  margin: 24px auto;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: var(--panel);
-  backdrop-filter: blur(18px);
-  box-shadow: var(--shadow);
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
 }
 
 .topbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 8px;
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(28px, 4vw, 46px);
-  line-height: 0.95;
-  letter-spacing: -0.04em;
+  font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .subtitle {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 14px;
+  display: none;
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
 }
 
 .controls label {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 select,
 button {
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 9px 14px;
+  border-radius: 4px;
+  padding: 4px 8px;
   font: inherit;
-  background: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text);
 }
 
@@ -86,65 +80,70 @@ button {
   cursor: pointer;
 }
 
+button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .meta-card {
-  padding: 14px 16px;
+  padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.54);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .meta-label {
-  display: block;
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--muted);
-  margin-bottom: 6px;
 }
 
 .meta-value {
-  font-size: 26px;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1;
 }
 
 .meta-value.small {
-  font-size: 18px;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .board {
   overflow: auto;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.54);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 860px;
 }
 
 th,
 td {
   text-align: left;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(72, 52, 31, 0.1);
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
 
 th {
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--muted);
-  background: rgba(255, 252, 248, 0.7);
+  background: rgba(255, 255, 255, 0.03);
   position: sticky;
   top: 0;
 }
@@ -153,57 +152,97 @@ tr:last-child td {
   border-bottom: 0;
 }
 
+tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  border: 1px solid currentColor;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: currentColor;
+  border: none;
   white-space: nowrap;
 }
 
+.badge { color: var(--muted); }
 .busy { color: var(--busy); }
-.busyq { color: #d17828; }
+.busyq { color: #e67e22; }
 .idle { color: var(--idle); }
-.idleq { color: #4d8b77; }
+.idleq { color: #66bb6a; }
 .stopped { color: var(--stopped); }
 .daemon { color: var(--daemon); }
+
+.badge::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Badge text needs to be readable on dark bg */
+.badge {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
 
 .tool {
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .project {
-  font-weight: 700;
-  margin-bottom: 4px;
+  font-weight: 600;
+  margin-bottom: 1px;
 }
 
 .cwd {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
   word-break: break-all;
 }
 
+.group-header td {
+  padding: 6px 8px 3px;
+  border-bottom: none;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.group-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.group-busy {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--busy);
+  margin-left: 4px;
+}
+
+.group-cwd {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 8px;
+}
+
 .empty {
-  padding: 32px 18px;
+  padding: 16px 8px;
   text-align: center;
   color: var(--muted);
 }
 
 .error {
   color: var(--busy);
-}
-
-@media (max-width: 740px) {
-  .shell {
-    width: calc(100% - 20px);
-    margin: 10px auto;
-    padding: 16px;
-    border-radius: 18px;
-  }
 }

@@ -13,9 +13,11 @@
     "windows": [
       {
         "title": "Agent Sessions",
-        "width": 1240,
-        "height": 860,
-        "resizable": true
+        "width": 720,
+        "height": 400,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false
       }
     ],
     "security": {
