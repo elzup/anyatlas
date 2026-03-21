@@ -1,0 +1,10 @@
+.gitignore
+index.html
+package.json
+pnpm-lock.yaml
+vite.config.js
+src/
+src-tauri/
+bin/
+web/
+raycast/
