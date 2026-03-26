@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Agent Sessions",
+  "productName": "anyatlas",
   "version": "0.1.0",
-  "identifier": "com.elzup.agentsessions",
+  "identifier": "com.elzup.anyatlas",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Agent Sessions",
+        "title": "anyatlas",
         "width": 720,
         "height": 400,
         "resizable": true,
